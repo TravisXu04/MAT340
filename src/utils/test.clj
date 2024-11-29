@@ -3,7 +3,7 @@
    [decomposition.pca :refer [pca]]
    [utils.data :refer [read-csv split-X-Y]]
    [utils.metrics :refer [classification-report]]
-   [utils.preprocessing :refer [dummy-preprocessing standard-scaler]]))
+   [preprocessing :refer [dummy-preprocessing standard-scaler]]))
 
 
 (defn test-model
@@ -25,8 +25,7 @@
          trained_model (model X_pca Y)]
      ; Prediction
      (classification-report
-      (trained_model X_pca)
-      Y)))
+      Y (trained_model X_pca))))
   ([model] (test-model model (pca 0.8) standard-scaler)))
 
 (defn test-model-no-scaler

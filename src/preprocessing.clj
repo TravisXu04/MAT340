@@ -1,4 +1,4 @@
-(ns utils.preprocessing
+(ns preprocessing
   (:require
    [clojure.core.matrix.stats :as s]
    [clojure.core.matrix :as m]))

@@ -11,7 +11,9 @@
       (Math/sqrt)))
 
 (defn -get-nearest-k-neighbors [k p X_train Y_train x]
-  (let [distances (map (fn [x_train y_train] {:distance (-euclidean-distance x x_train p) :label y_train})
+  (let [distances (map (fn [x_train y_train]
+                         {:distance (-euclidean-distance x x_train p)
+                          :label y_train})
                        X_train
                        Y_train)]
     (->> distances

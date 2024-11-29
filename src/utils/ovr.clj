@@ -13,7 +13,7 @@
     (if (< iter (count orig))
       (if (= -1 (orig iter))
         (recur (inc iter) (inc idx) (conj res (get new idx)))
-        (recur (inc iter) idx (conj res (orig iter))))
+        (recur (inc iter) idx (conj res (get orig iter))))
       res)))
 
 

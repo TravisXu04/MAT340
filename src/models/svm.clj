@@ -6,27 +6,82 @@
    [utils.ovr :refer [ovr]]))
 
 
-(defn linear [x y]
+(defn linear 
+  "Defines a linear kernel for SVM.
+  
+   Parameters:
+   - `x`: The first input matrix or vector.
+   - `y`: The second input matrix or vector.
+  
+   Returns:
+   - The dot product of `x` and the transpose of `y`.
+  
+   Usage:
+   - Use this kernel in the `core` or `svm` functions for linear separability in SVM models."
+  [x y]
   (->> y
        (m/transpose)
        (m/dot x)))
 
-(defn -poly [x y degree] (m/pow (linear x y) degree))
+(defn -poly [x y degree] 
+  (m/pow (linear x y) degree))
 
-(defn poly [degree] #(-poly %1 %2 degree))
+(defn poly
+  "Creates a polynomial kernel for SVM.
+  
+   Parameters:
+   - `degree`: The degree of the polynomial.
+  
+   Returns:
+   - A kernel function that takes two arguments `x` and `y` and computes the polynomial transformation of their dot product.
+  
+   Usage:
+   - Use this kernel in the `core` or `svm` functions for non-linear separability with polynomial features."
+  [degree]
+  #(-poly %1 %2 degree))
 
-;; FIXME boken
+(defn -new-axis [X] 
+  (m/matrix 
+   (mapv #(vec [%])
+         (m/to-nested-vectors X))))
+
+(defn -special-sum [m]
+  (m/matrix
+   (mapv
+    #(mapv m/esum %)
+    m)))
+
+(defn -special-sub [x y]
+  (m/matrix
+   (mapv
+    #(mapv
+      (fn [i_y]
+        (m/sub (first %) i_y))
+      x)
+    y)))
+
 (defn -rbf [x y gamma]
-  (let [diff (m/sub y (m/reshape x [1 (m/dimension-count x 0)]))]
+  (let [diff (-special-sub y (-new-axis x))]
     (-> diff
         (m/pow 2)
-        (m/esum)
+        (-special-sum)
         (m/mul (- gamma))
         #_{:clj-kondo/ignore [:unresolved-var]}
         (m/exp))))
 
-(defn rbf [gamma] #(-rbf %1 %2 gamma))
-
+(defn rbf 
+  "Creates an RBF (Radial Basis Function) kernel for SVM.
+  
+   Parameters:
+   - `gamma`: The gamma parameter for the RBF kernel. Controls the influence of a single training example.
+  
+   Returns:
+   - A kernel function that takes two arguments `x` and `y` and computes the RBF transformation.
+  
+   Usage:
+   - Use this kernel in the `core` or `svm` functions for non-linear separability with RBF kernels."
+  [gamma] 
+  #(-rbf %1 %2 gamma))
 
 (defn predict
   [kernel train_X train_Y train_lambdas train_b X]
@@ -61,15 +116,16 @@
     (get-t new_t 0)))
 
 
-(defn -fit [kernel C n_iter X Y]
+(defn -fit [kernel C n_iter X Y] 
   (let [Y (-> Y
               (m/mul 2)
               (m/sub 1))
         [col_num _] (m/shape Y)
-        K (m/mul
+        new_axis_y (-new-axis Y)
+        K (m/mmul
            (kernel X X)
-           (m/transpose Y)
-           Y)]
+           new_axis_y
+           (m/transpose new_axis_y))]
     (loop [iter 0
            idxM 0
            lambdas (m/zero-array [col_num])]
@@ -81,12 +137,12 @@
                       (conj %1 %2) %1)
                    []
                    (range (first (m/shape lambdas))))
-              filter (fn [v]
-                       (m/matrix
-                        (reduce #(conj %1 (m/mget v %2))
-                                [] idx)))
-              filtered_K (filter K)
-              filtered_Y (filter Y)
+              filtered_K (m/matrix
+                          (reduce #(conj %1 (m/get-column K %2))
+                                  [] idx))
+              filtered_Y (m/matrix
+                          (reduce #(conj %1 (get Y %2))
+                                  [] idx))
               temp_var (-> filtered_K
                            (m/mmul lambdas)
                            (m/esum)
@@ -101,10 +157,15 @@
                 Q (m/matrix
                    [[(m/mget K idxM idxM) (m/mget K idxM idxL)]
                     [(m/mget K idxL idxM) (m/mget K idxL idxL)]])
-                v0 (m/matrix [(m/mget lambdas idxM) (m/mget lambdas idxL)])
-                k0 (- 1 (m/esum (m/mul lambdas [(m/mget K idxM) (m/mget K idxL)])))
+                v0 (m/matrix 
+                    [(m/mget lambdas idxM) (m/mget lambdas idxL)])
+                k0 (->> [(m/get-row K idxM) (m/get-row K idxL)]
+                        (m/mul lambdas)
+                        (mapv m/esum)
+                        (m/sub 1))
                 u (m/matrix [(- (m/mget Y idxL)) (m/mget Y idxM)])
-                t_max (m/div (m/dot k0 u) (+ (m/dot (m/dot Q u) u) 1e-15))
+                t_max (/ (m/dot k0 u) 
+                         (+ (m/dot (m/dot Q u) u) 1e-15))
                 [new_idxM new_idxL] (->> (-restrict-to-square C t_max v0 u)
                                          (m/mul u)
                                          (m/add v0))]
@@ -115,9 +176,34 @@
         :else (recur (inc iter) 0 lambdas)))))
 
 
-(defn core [kernel C n_iter]
+(defn core 
+    "Creates an SVM (Support Vector Machine) training function with specified parameters.
+     
+     Parameters:
+     - `kernel`: The kernel function to use for the SVM. Common options include:
+       - `linear`: A linear kernel for linear separability.
+       - `poly`: A polynomial kernel for non-linear separability (see `poly`).
+       - `rbf`: A radial basis function (Gaussian) kernel for highly non-linear separability (see `rbf`).
+     - `C`: The regularization parameter. Higher values increase the penalty for misclassified points.
+     - `n_iter`: The number of training epochs.
+  
+     Returns:
+     - The fitting function takes the training data `X` and labels `Y`, and produces a prediction function.
+     - The prediction function accepts input `X` and returns the predicted labels `Y`."
+  [kernel C n_iter]
   #(-fit kernel C n_iter %1 %2))
 
-;; FIXME boken
 (def svm
+  "An SVM (Support Vector Machine) implementation wrapped with One-vs-Rest (OVR) strategy.
+  
+   Parameters:
+   - `kernel`: The kernel function to use for the SVM (see `core` for options).
+   - `C`: The regularization parameter.
+   - `n_iter`: The number of training epochs.
+  
+   Returns:
+   - The fitting function takes the training data `X` and labels `Y` and produces a prediction function.
+   - The prediction function accepts input `X` and returns the predicted labels `Y`.
+   
+   This model leverages the One-vs-Rest strategy, enabling multi-class classification. For binary classification or standalone SVM training, use the `core` function directly."
   (comp ovr core))

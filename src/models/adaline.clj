@@ -44,8 +44,7 @@
 
    Returns:
    - The fitting function takes two arguments: `X` (training data) and `Y` (labels).
-   - `Y` can only contain values `1` or `-1`; multiclass support is not available in this function.
-   - It performs training using the provided `eta` and `n_iter` values, fitting the model to `X` and `Y`."
+   - `Y` can only contain values `1` or `-1`; multiclass support is not available in this function."
   [eta n_iter]
   #(-fit eta n_iter %1 %2))
 

@@ -30,3 +30,29 @@
   ([raw header] (split-X-Y raw header #(last %))))
 
 
+(defn split-train-test
+  "Splits the dataset into training and testing sets.
+   - `X`: Vector of feature vectors.
+   - `Y`: Vector of labels.
+   - `size`: Proportion of data to use for training (a number between 0 and 1).
+   
+   Returns a vector `[X_train Y_train X_test Y_test]` where:
+   - `X_train` and `Y_train` are the training feature and label vectors.
+   - `X_test` and `Y_test` are the testing feature and label vectors."
+  [X Y size]
+  (let [grouped (group-by #(% 1) (map-indexed vector Y))
+        split-group
+        (fn [[_ indices]]
+          (let [total (count indices)
+                train-count (int (* total size))
+                train-idx (mapv #(% 0) (take train-count indices))
+                test-idx (mapv  #(% 0) (drop train-count indices))]
+            [train-idx test-idx]))
+        splits (map split-group grouped)
+        train-indices (mapcat #(% 0) splits)
+        test-indices (mapcat #(% 1) splits)
+        X_train (mapv X train-indices)
+        Y_train (mapv Y train-indices)
+        X_test (mapv X test-indices)
+        Y_test (mapv Y test-indices)]
+    [X_train Y_train X_test Y_test]))

@@ -4,18 +4,18 @@ This project for MAT340 focuses on building machine learning models from scratch
 
 - Data Preprocessing
   - Import dataset from CSV ✓
-  - Splitting dataset
+  - Splitting dataset ✓
   - Scalers ✓
 - Features Extraction
   - PCA (Principal Component Analysis) ✓
-  - LLE (Locally Linear Embedding) `?`
+  - ~~LLE (Locally Linear Embedding)~~
 - Models
   - Perceptron ✓
   - Adaline ✓
   - Logistic Regression ✓
   - KNN (K-nearest Neighbor) ✓
   - Decision Tree `?`
-  - SVM (Support Vector Machine) `https://stackoverflow.com/questions/62242579/implementing-svm-rbf ?`
+  - SVM (Support Vector Machine) ✓
 - Metrics
   - Accuracy ✓
   - Confusion Matrix ✓

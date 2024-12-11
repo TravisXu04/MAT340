@@ -18,7 +18,9 @@
        (m/add (first W))))
 
 (defn -predict [W X]
-  (mapv #(if (> % 0) 1 -1) (-net-input W X)))
+  (if (= (first (m/shape X)) 0)
+    []
+    (mapv #(if (> % 0) 1 -1) (-net-input W X))))
 
 
 (defn -update-weight [eta W x y]

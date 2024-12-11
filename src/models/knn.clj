@@ -29,8 +29,10 @@
          (key))))
 
 (defn -predict [n_neighbors p X_train Y_train X]
-  (mapv
-   #(-predict-one n_neighbors p X_train Y_train %) X))
+  (if (= (first (m/shape X)) 0)
+    []
+    (mapv
+     #(-predict-one n_neighbors p X_train Y_train %) X)))
 
 
 (defn knn

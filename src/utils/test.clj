@@ -1,9 +1,9 @@
 (ns utils.test
   (:require
    [decomposition.pca :refer [pca]]
-   [utils.data :refer [read-csv split-X-Y]]
-   [utils.metrics :refer [classification-report]]
-   [preprocessing :refer [dummy-preprocessing standard-scaler]]))
+   [preprocessing :refer [dummy-preprocessing standard-scaler]]
+   [utils.data :refer [read-csv split-train-test split-X-Y]]
+   [utils.metrics :refer [classification-report]]))
 
 
 (defn test-model
@@ -21,11 +21,13 @@
          ; Feature Extraction
          trained_dim_red (dim_red X_std)
          X_pca (trained_dim_red X_std)
+         ; split the dataset into training and testing
+         [X_train Y_train X_test Y_test] (split-train-test X_pca Y 0.8)
          ; Training
-         trained_model (model X_pca Y)]
+         trained_model (model X_train Y_train)]
      ; Prediction
      (classification-report
-      Y (trained_model X_pca))))
+      Y_test (trained_model X_test))))
   ([model] (test-model model (pca 0.8) standard-scaler)))
 
 (defn test-model-no-scaler

@@ -1,4 +1,4 @@
-;; Implementation based on https://github.com/fbeilstein/simplest_smo_ever
+;; Implementation based on https://github.com/fbeilstein/simplest_smo_ever which is based on https://cs229.stanford.edu/materials/smo.pdf
 
 (ns models.svm
   (:require
@@ -83,7 +83,7 @@
   [gamma] 
   #(-rbf %1 %2 gamma))
 
-(defn predict
+(defn -predict
   [kernel train_X train_Y train_lambdas train_b X]
   (if (= (first (m/shape X)) 0)
     []
@@ -129,6 +129,7 @@
     (loop [iter 0
            idxM 0
            lambdas (m/zero-array [col_num])]
+      (m/set-current-implementation :persistent-vector)
       (cond
         (< n_iter iter)
         (let [idx (reduce
@@ -146,33 +147,35 @@
               temp_var (-> filtered_K
                            (m/mmul lambdas)
                            (m/esum)
-                           (m/add -1)
+                           (+ -1)
                            (m/mul filtered_Y))
               mean (/ (m/esum temp_var) (first (m/shape temp_var)))]
-          #(predict kernel X Y lambdas mean %))
+          #(-predict kernel X Y lambdas mean %))
         (< idxM col_num)
-        (do
-          (m/set-current-implementation :persistent-vector)
-          (let [idxL (rand-int col_num)
-                Q (m/matrix
-                   [[(m/mget K idxM idxM) (m/mget K idxM idxL)]
-                    [(m/mget K idxL idxM) (m/mget K idxL idxL)]])
-                v0 (m/matrix 
-                    [(m/mget lambdas idxM) (m/mget lambdas idxL)])
-                k0 (->> [(m/get-row K idxM) (m/get-row K idxL)]
-                        (m/mul lambdas)
-                        (mapv m/esum)
-                        (m/sub 1))
-                u (m/matrix [(- (m/mget Y idxL)) (m/mget Y idxM)])
-                t_max (/ (m/dot k0 u) 
-                         (+ (m/dot (m/dot Q u) u) 1e-15))
-                [new_idxM new_idxL] (->> (-restrict-to-square C t_max v0 u)
-                                         (m/mul u)
-                                         (m/add v0))]
-            (recur iter (inc idxM)
-                   (reduce #(m/mset %1 (first %2) (second %2))
-                           lambdas
-                           [[idxM new_idxM] [idxL new_idxL]]))))
+        (let [idxL
+              (loop [result (rand-int col_num)]
+                (if (= result idxM)
+                  (recur (rand-int col_num))
+                  result))
+              Q (m/matrix
+                 [[(m/mget K idxM idxM) (m/mget K idxM idxL)]
+                  [(m/mget K idxL idxM) (m/mget K idxL idxL)]])
+              v0 (m/matrix
+                  [(m/mget lambdas idxM) (m/mget lambdas idxL)])
+              k0 (->> [(m/get-row K idxM) (m/get-row K idxL)]
+                      (m/mul lambdas)
+                      (mapv m/esum)
+                      (m/sub 1))
+              u (m/matrix [(m/sub (m/mget Y idxL)) (m/mget Y idxM)])
+              t_max (/ (m/dot k0 u)
+                       (+ (m/dot (m/dot Q u) u) 1e-15))
+              [new_idxM new_idxL] (->> (-restrict-to-square C t_max v0 u)
+                                       (m/mul u)
+                                       (m/add v0))]
+          (recur iter (inc idxM)
+                 (reduce #(m/mset %1 (first %2) (second %2))
+                         lambdas
+                         [[idxM new_idxM] [idxL new_idxL]])))
         :else (recur (inc iter) 0 lambdas)))))
 
 
@@ -193,6 +196,7 @@
   [kernel C n_iter]
   #(-fit kernel C n_iter %1 %2))
 
+;; FIXME low accuracy
 (def svm
   "An SVM (Support Vector Machine) implementation wrapped with One-vs-Rest (OVR) strategy.
   
